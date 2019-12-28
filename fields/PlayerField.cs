@@ -7,14 +7,14 @@ namespace SeaBattleGame.fields
 {
     internal class PlayerField
     {
-        public Dictionary<Tuple<int, int>, CellState> CellAndStatePairs { get; private set; }
-
         private readonly List<INavalShip> remainingShips = new List<INavalShip>(20);
 
-        private readonly HashSet<Tuple<Tuple<int, int>, Tuple<int, int>>> sunkShips
+        private HashSet<Tuple<Tuple<int, int>, Tuple<int, int>>> sunkShipsCells
             = new HashSet<Tuple<Tuple<int, int>, Tuple<int, int>>>();
 
         private Tuple<int, int> firstHighlightCell, lastHighlightCell;
+
+        public int[,] ShotMap { get; private set; } = new int[10, 10];
 
         public int CellWidth { get; }
 
@@ -25,8 +25,6 @@ namespace SeaBattleGame.fields
         public PlayerField(int pictureWidth, int pictureHeight)
         {
             remainingShips = new List<INavalShip>(10);
-            sunkShips = new HashSet<Tuple<Tuple<int, int>, Tuple<int, int>>>();
-            CellAndStatePairs = new Dictionary<Tuple<int, int>, CellState>(100);
             PlacementAllowed = false;
             CellWidth = pictureWidth / 10;
             CellHeight = pictureHeight / 10;
@@ -42,8 +40,8 @@ namespace SeaBattleGame.fields
         public void Reset()
         {
             remainingShips.Clear();
-            sunkShips.Clear();
-            CellAndStatePairs.Clear();
+            sunkShipsCells.Clear();
+            Array.Clear(ShotMap, 0, 100);
         }
 
         public void Draw(Graphics g)
@@ -58,7 +56,7 @@ namespace SeaBattleGame.fields
         private void DrawShips(Graphics g)
         {
             foreach (INavalShip ship in remainingShips) DrawShip(g, ship.Bow, ship.Stern);
-            foreach (Tuple<Tuple<int, int>, Tuple<int, int>> ship in sunkShips)
+            foreach (Tuple<Tuple<int, int>, Tuple<int, int>> ship in sunkShipsCells)
                 DrawShip(g, ship.Item1, ship.Item2);
 
         }
@@ -105,12 +103,15 @@ namespace SeaBattleGame.fields
 
         private void DrawMarks(Graphics g)
         {
-            foreach (KeyValuePair<Tuple<int, int>, CellState> cell in CellAndStatePairs)
+            for (int i = 0; i < 10; i++)
             {
-                int x = cell.Key.Item2 * CellWidth;
-                int y = cell.Key.Item1 * CellHeight;
-                if (cell.Value == CellState.Miss) DrawDot(g, x, y);
-                else if (cell.Value == CellState.Hit) DrawCross(g, x, y);
+                for (int j = 0; j < 10; j++)
+                {
+                    int x = j * CellWidth;
+                    int y = i * CellHeight;
+                    if (ShotMap[i, j] == 1) DrawDot(g, x, y);
+                    else if (ShotMap[i, j] == 2) DrawCross(g, x, y);
+                }
             }
         }
 
@@ -144,14 +145,19 @@ namespace SeaBattleGame.fields
         {
             if ((firstHighlightCell.Item1 < 0) || (firstHighlightCell.Item2 < 0)
                    || (lastHighlightCell.Item1 >= 10) || (lastHighlightCell.Item2 >= 10))
+            {
                 return false;
+            }
+
             foreach (INavalShip ship in remainingShips)
             {
                 if ((firstHighlightCell.Item1 <= ship.Stern.Item1 + 1)
                     && (firstHighlightCell.Item2 <= ship.Stern.Item2 + 1)
                     && (lastHighlightCell.Item1 >= ship.Bow.Item1 - 1)
                     && (lastHighlightCell.Item2 >= ship.Bow.Item2 - 1))
+                {
                     return false;
+                }
             }
             return true;
         }
@@ -178,39 +184,26 @@ namespace SeaBattleGame.fields
             }
         }
 
-        public bool CheckIfShotLanded(Tuple<int, int> cell, out HashSet<Tuple<int, int>>
-            MarkedSurroundingCells)
+        public bool CheckIfShotLanded(Tuple<int, int> cell, out bool shipDestroyed)
         {
-            MarkedSurroundingCells = new HashSet<Tuple<int, int>>();
             foreach (INavalShip ship in remainingShips)
             {
                 if (!(ship.CheckIfHit(cell.Item1, cell.Item2))) continue;
-                CellAndStatePairs.Add(new Tuple<int, int>(cell.Item1, cell.Item2), CellState.Hit);
-                if (ship.DecksIntact > 0) return true;
+                ShotMap[cell.Item1, cell.Item2] = 2;
+                if (ship.DecksIntact > 0)
+                {
+                    shipDestroyed = false;
+                    return true;
+                }
                 if (ship.Bow.Item1 == ship.Stern.Item1)
                 {
                     int i = cell.Item1;
                     for (int j = ship.Bow.Item2 - 1; j <= ship.Stern.Item2 + 1; j++)
                     {
                         if ((j < 0) || (j >= 10)) continue;
-                        Tuple<int, int> upperCell = i - 1 >= 0 ? new Tuple<int, int>(i - 1, j) : null;
-                        Tuple<int, int> lowerCell = i + 1 < 10 ? new Tuple<int, int>(i + 1, j) : null;
-                        var centralCell = new Tuple<int, int>(i, j);
-                        if ((upperCell != null) && !(CellAndStatePairs.ContainsKey(upperCell)))
-                        {
-                            CellAndStatePairs.Add(upperCell, CellState.Miss);
-                            MarkedSurroundingCells.Add(upperCell);
-                        }
-                        if ((lowerCell != null) && !(CellAndStatePairs.ContainsKey(lowerCell)))
-                        {
-                            CellAndStatePairs.Add(lowerCell, CellState.Miss);
-                            MarkedSurroundingCells.Add(lowerCell);
-                        }
-                        if (!CellAndStatePairs.ContainsKey(centralCell))
-                        {
-                            CellAndStatePairs.Add(centralCell, CellState.Miss);
-                            MarkedSurroundingCells.Add(centralCell);
-                        }
+                        if (i - 1 >= 0) ShotMap[i - 1, j] = 1;
+                        if (i + 1 < 10) ShotMap[i + 1, j] = 1;
+                        if (ShotMap[i, j] == 0) ShotMap[i, j] = 1;
                     }
                 }
                 else
@@ -219,31 +212,20 @@ namespace SeaBattleGame.fields
                     for (int i = ship.Bow.Item1 - 1; i <= ship.Stern.Item1 + 1; i++)
                     {
                         if ((i < 0) || (i >= 10)) continue;
-                        Tuple<int, int> leftCell = j - 1 >= 0 ? new Tuple<int, int>(i, j - 1) : null;
-                        Tuple<int, int> rightCell = j + 1 < 10 ? new Tuple<int, int>(i, j + 1) : null;
-                        var centralCell = new Tuple<int, int>(i, j);
-                        if ((leftCell != null) && !(CellAndStatePairs.ContainsKey(leftCell)))
-                        {
-                            CellAndStatePairs.Add(leftCell, CellState.Miss);
-                            MarkedSurroundingCells.Add(leftCell);
-                        }
-                        if ((rightCell != null) && !(CellAndStatePairs.ContainsKey(rightCell)))
-                        {
-                            CellAndStatePairs.Add(rightCell, CellState.Miss);
-                            MarkedSurroundingCells.Add(rightCell);
-                        }
-                        if (!CellAndStatePairs.ContainsKey(centralCell))
-                        {
-                            CellAndStatePairs.Add(centralCell, CellState.Miss);
-                            MarkedSurroundingCells.Add(centralCell);
-                        }
+                        if (j - 1 >= 0) ShotMap[i, j - 1] = 1;
+                        if (j + 1 < 10) ShotMap[i, j + 1] = 1;
+                        if (ShotMap[i, j] == 0) ShotMap[i, j] = 1;
                     }
                 }
                 remainingShips.Remove(ship);
-                sunkShips.Add(new Tuple<Tuple<int, int>, Tuple<int, int>>(
+                sunkShipsCells.Add(new Tuple<Tuple<int, int>, Tuple<int, int>>(
                     ship.Bow, ship.Stern));
-                return true;
+                {
+                    shipDestroyed = true;
+                    return true;
+                }
             }
+            shipDestroyed = false;
             return false;
         }
     }

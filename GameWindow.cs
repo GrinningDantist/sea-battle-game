@@ -162,18 +162,10 @@ namespace SeaBattleGame
             int numberOfDocks = 0;
             switch (shipType)
             {
-                case ShipTypes.Battleship:
-                    numberOfDocks = 4;
-                    break;
-                case ShipTypes.Cruiser:
-                    numberOfDocks = 3;
-                    break;
-                case ShipTypes.Destroyer:
-                    numberOfDocks = 2;
-                    break;
-                case ShipTypes.TorpedoBoat:
-                    numberOfDocks = 1;
-                    break;
+                case ShipTypes.Battleship: numberOfDocks = 4; break;
+                case ShipTypes.Cruiser: numberOfDocks = 3; break;
+                case ShipTypes.Destroyer: numberOfDocks = 2; break;
+                case ShipTypes.TorpedoBoat: numberOfDocks = 1; break;
             }
             playerField.HighlightPlacement(numberOfDocks, i, j, verticallyCheckBox.Checked);
             DrawPlayerField();

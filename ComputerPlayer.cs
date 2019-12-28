@@ -6,9 +6,9 @@ namespace SeaBattleGame
 {
     internal class ComputerPlayer
     {
-        private readonly PlayerField playerField;
-
         private readonly HashSet<Tuple<int, int>> markedCells = new HashSet<Tuple<int, int>>();
+
+        private readonly PlayerField playerField;
 
         private Tuple<int, int> startCell;
         private Tuple<int, int> currentCell;
@@ -27,11 +27,8 @@ namespace SeaBattleGame
 
         public void Shoot()
         {
-            bool shotLanded = playerField.CheckIfShotLanded(currentCell,
-                out HashSet<Tuple<int, int>> markedSurroundingCells);
+            bool shotLanded = playerField.CheckIfShotLanded(currentCell, out bool shipDestroyed);
             markedCells.Add(currentCell);
-            bool shipSank = markedSurroundingCells.Count > 0;
-            if (shipSank) markedCells.UnionWith(markedSurroundingCells);
             if (markedCells.Count < 100) ChooseNextCell(shotLanded);
         }
 
