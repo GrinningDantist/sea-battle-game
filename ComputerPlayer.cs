@@ -4,82 +4,101 @@ using System.Collections.Generic;
 
 namespace SeaBattleGame
 {
-    internal class ComputerPlayer
-    {
-        private readonly HashSet<Tuple<int, int>> markedCells = new HashSet<Tuple<int, int>>();
+	internal class ComputerPlayer
+	{
+		private readonly PlayerField playerField;
 
-        private readonly PlayerField playerField;
+		private Cell startCell;
+		private Cell currentCell;
 
-        private Tuple<int, int> startCell;
-        private Tuple<int, int> currentCell;
+		public ComputerPlayer(PlayerField playerField)
+		{
+			this.playerField = playerField;
+			ChooseRandomCell();
+		}
 
-        public ComputerPlayer(PlayerField playerField)
-        {
-            this.playerField = playerField;
-            ChooseRandomCell();
-        }
+		public void Reset()
+		{
+			ChooseRandomCell();
+		}
 
-        public void Reset()
-        {
-            markedCells.Clear();
-            ChooseRandomCell();
-        }
+		public void Shoot()
+		{
+			bool shotLanded = playerField.CheckShot(currentCell, out bool shipDestroyed);
+			if (!(playerField.ShipsDestroyed)) ChooseNextCell(shotLanded, shipDestroyed);
+		}
 
-        public void Shoot()
-        {
-            bool shotLanded = playerField.CheckIfShotLanded(currentCell, out bool shipDestroyed);
-            markedCells.Add(currentCell);
-            if (markedCells.Count < 100) ChooseNextCell(shotLanded);
-        }
+		private void ChooseNextCell(bool shotLanded, bool shipDestroyed)
+		{
+			if (shipDestroyed) ChooseRandomCell();
+			else if (!shotLanded && (currentCell == startCell))
+				ChooseRandomCell();
+			else if ((currentCell == startCell) || !shotLanded
+				&& ((Math.Abs(currentCell.i - startCell.i) == 1)
+				|| (Math.Abs(currentCell.j - startCell.j) == 1)))
+				ChooseCellNearStart();
+			else ContinueShelling(shotLanded);
+		}
 
-        private void ChooseNextCell(bool shotLanded)
-        {
-            if (currentCell != startCell) ContinueShelling(shotLanded);
-            else if (!shotLanded) ChooseRandomCell();
-            else ChooseNearbyCell();
-        }
+		private void ContinueShelling(bool shotLanded)
+		{
+			int next_i, next_j;
+			if (currentCell.i == startCell.i)
+			{
+				next_i = currentCell.i;
+				next_j = GetNextCellIndex(currentCell.j, startCell.j, shotLanded);
+			}
+			else
+			{
+				next_j = currentCell.j;
+				next_i = GetNextCellIndex(currentCell.i, startCell.i, shotLanded);
+			}
+			currentCell = new Cell(next_i, next_j);
+		}
 
-        private void ContinueShelling(bool shotLanded)
-        {
-            if (currentCell.Item1 == startCell.Item1)
-            {
+		private int GetNextCellIndex(int currentCellIndex, int startCellIndex, bool shotLanded)
+		{
+			if (currentCellIndex < startCellIndex)
+			{
+				if (shotLanded && currentCellIndex - 1 >= 0)
+					return currentCellIndex - 1;
+				else return startCellIndex + 1;
+			}
+			else
+			{
+				if (shotLanded && currentCellIndex + 1 < 10)
+					return currentCellIndex + 1;
+				else return startCellIndex - 1;
+			}
+		}
 
-            }
-        }
+		private void ChooseRandomCell()
+		{
+			var RNG = new Random();
+			Cell cell;
+			do cell = new Cell(RNG.Next(10), RNG.Next(10));
+			while (playerField.CheckIfMarked(cell));
+			startCell = cell;
+			currentCell = startCell;
+		}
 
-        private void ChooseRandomCell()
-        {
-            var RNG = new Random();
-            Tuple<int, int> cell;
-            do
-            {
-                cell = new Tuple<int, int>(RNG.Next(10), RNG.Next(10));
-            }
-            while (markedCells.Contains(cell));
-            startCell = new Tuple<int, int>(cell.Item1, cell.Item2);
-            currentCell = startCell;
-        }
+		private void ChooseCellNearStart()
+		{
+			var freeCells = new List<Cell>(4);
+			if (startCell.i - 1 >= 0)
+				TryAddCell(new Cell(startCell.i - 1, startCell.j), freeCells);
+			if (startCell.i + 1 < 10)
+				TryAddCell(new Cell(startCell.i + 1, startCell.j), freeCells);
+			if (startCell.j - 1 >= 0)
+				TryAddCell(new Cell(startCell.i, startCell.j - 1), freeCells);
+			if (startCell.j + 1 < 10)
+				TryAddCell(new Cell(startCell.i, startCell.j + 1), freeCells);
+			currentCell = freeCells[(new Random()).Next(freeCells.Count)];
+		}
 
-        private void ChooseNearbyCell()
-        {
-            var untouchedNearbyCells = new List<Tuple<int, int>>(4);
-            Tuple<int, int> upperCell = (currentCell.Item1 - 1 >= 0) ? new Tuple<int, int>(
-                currentCell.Item1 - 1, currentCell.Item2) : null;
-            Tuple<int, int> lowerCell = (currentCell.Item1 + 1 < 10) ? new Tuple<int, int>(
-                currentCell.Item1 + 1, currentCell.Item2) : null;
-            Tuple<int, int> leftCell = (currentCell.Item2 - 1 >= 0) ? new Tuple<int, int>(
-                currentCell.Item1, currentCell.Item2 - 1) : null;
-            Tuple<int, int> rightCell = (currentCell.Item2 + 1 < 10) ? new Tuple<int, int>(
-                currentCell.Item1, currentCell.Item2 + 1) : null;
-            if ((upperCell != null) && !(markedCells.Contains(upperCell)))
-                untouchedNearbyCells.Add(upperCell);
-            if ((lowerCell != null) && !(markedCells.Contains(lowerCell)))
-                untouchedNearbyCells.Add(lowerCell);
-            if ((leftCell != null) && !(markedCells.Contains(leftCell)))
-                untouchedNearbyCells.Add(leftCell);
-            if ((rightCell != null) && !(markedCells.Contains(rightCell)))
-                untouchedNearbyCells.Add(rightCell);
-            currentCell = untouchedNearbyCells[(new Random()).Next(untouchedNearbyCells.Count)];
-        }
-    }
+		private void TryAddCell(Cell cell, List<Cell> list)
+		{
+			if (!(playerField.CheckIfMarked(cell))) list.Add(cell);
+		}
+	}
 }

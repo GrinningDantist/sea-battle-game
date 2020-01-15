@@ -5,57 +5,38 @@ using System.Drawing;
 
 namespace SeaBattleGame.fields
 {
-	internal class PlayerField
+	internal class ComputerField
 	{
 		private readonly int cellWidth;
 		private readonly int cellHeight;
 
-		private List<INavalShip> remainingShips = new List<INavalShip>(10);
-
-		private HashSet<Tuple<Cell, Cell>> sunkShipsEnds = new HashSet<Tuple<Cell, Cell>>();
-
-		private Cell highlightBow = null;
-		private Cell highlightStern = null;
+		private List<INavalShip> ships = new List<INavalShip>(10);
 
 		private int[,] shotMap = new int[10, 10];
 
-		public bool PlacementAllowed { get; private set; } = false;
-
-		public bool ShipsDestroyed { get { return remainingShips.Count == 0; } }
-
-		public PlayerField(int pictureWidth, int pictureHeight)
+		public ComputerField(int pictureWidth, int pictureHeight)
 		{
 			cellWidth = pictureWidth / 10;
 			cellHeight = pictureHeight / 10;
-		}
-
-		public void RemoveHighlight()
-		{
-			highlightBow = null;
-			highlightStern = null;
-			PlacementAllowed = false;
+			GenerateField();
 		}
 
 		public void Reset()
 		{
-			remainingShips.Clear();
-			sunkShipsEnds.Clear();
+			ships.Clear();
 			Array.Clear(shotMap, 0, 100);
+			GenerateField();
 		}
 
 		public void Draw(Graphics g)
 		{
-			DrawShips(g);
-			if ((highlightBow != null) && (highlightStern != null))
-				DrawHighlight(g);
 			DrawGrid(g);
 			DrawMarks(g);
 		}
 
 		private void DrawShips(Graphics g)
 		{
-			foreach (INavalShip ship in remainingShips) DrawShip(g, ship.Bow, ship.Stern);
-			foreach (Tuple<Cell, Cell> ship in sunkShipsEnds) DrawShip(g, ship.Item1, ship.Item2);
+			foreach (INavalShip ship in ships) DrawShip(g, ship.Bow, ship.Stern);
 
 		}
 
@@ -67,21 +48,6 @@ namespace SeaBattleGame.fields
 			int width = (stern.j - bow.j + 1) * cellWidth;
 			int height = (stern.i - bow.i + 1) * cellHeight;
 			g.FillRectangle(Brushes.Gray, x, y, width, height);
-			g.DrawRectangle(pen, x, y, width, height);
-			pen.Dispose();
-		}
-
-		private void DrawHighlight(Graphics g)
-		{
-			Brush brush;
-			if (PlacementAllowed) brush = Brushes.Orange;
-			else brush = Brushes.Red;
-			int x = highlightBow.j * cellWidth;
-			int y = highlightBow.i * cellHeight;
-			int width = (highlightStern.j - highlightBow.j + 1) * cellWidth;
-			int height = (highlightStern.i - highlightBow.i + 1) * cellHeight;
-			g.FillRectangle(brush, x, y, width, height);
-			var pen = new Pen(Color.Black, 2);
 			g.DrawRectangle(pen, x, y, width, height);
 			pen.Dispose();
 		}
@@ -127,7 +93,7 @@ namespace SeaBattleGame.fields
 			}
 		}
 
-		public void GenerateField()
+		private void GenerateField()
 		{
 			var RNG = new Random();
 			for (int dockNumber = 4; dockNumber > 0; dockNumber--)
@@ -145,39 +111,15 @@ namespace SeaBattleGame.fields
 						stern = new Cell(i + (placeVertically ? dockNumber - 1 : 0),
 							j + (!placeVertically ? dockNumber - 1 : 0));
 					}
-					while (!(CheckIfPlacementAllowed(bow, stern)));
+					while (!CheckIfPlacementAllowed(bow, stern));
 					PlaceShip(bow, stern);
 				}
 			}
 		}
 
-		public void HighlightPlacement(int DockNumber, Cell cursorCell, bool placeVertically)
-		{
-			if (!placeVertically)
-			{
-				highlightBow = new Cell(cursorCell.i, cursorCell.j - (DockNumber - 1) / 2);
-				highlightStern = new Cell(cursorCell.i, cursorCell.j + DockNumber / 2);
-			}
-			else
-			{
-				highlightBow = new Cell(cursorCell.i - (DockNumber - 1) / 2, cursorCell.j);
-				highlightStern = new Cell(cursorCell.i + DockNumber / 2, cursorCell.j);
-			}
-			PlacementAllowed = CheckIfPlacementAllowed();
-		}
-
-		private bool CheckIfPlacementAllowed()
-		{
-			return CheckIfPlacementAllowed(highlightBow, highlightStern);
-		}
-
 		private bool CheckIfPlacementAllowed(Cell bow, Cell stern)
 		{
-			if ((bow.i < 0) || (bow.j < 0) || (stern.i >= 10) || (stern.j >= 10))
-			{
-				return false;
-			}
-			foreach (INavalShip ship in remainingShips)
+			foreach (INavalShip ship in ships)
 			{
 				if ((bow.i <= ship.Stern.i + 1)
 					&& (bow.j <= ship.Stern.j + 1)
@@ -190,11 +132,6 @@ namespace SeaBattleGame.fields
 			return true;
 		}
 
-		public void PlaceShip()
-		{
-			PlaceShip(highlightBow, highlightStern);
-		}
-
 		public void PlaceShip(Cell bow, Cell stern)
 		{
 			int dockNumber = bow.i == stern.i
@@ -203,31 +140,27 @@ namespace SeaBattleGame.fields
 			switch (dockNumber)
 			{
 				case 1:
-					remainingShips.Add(new TorpedoBoat(bow));
+					ships.Add(new TorpedoBoat(bow));
 					break;
 				case 2:
-					remainingShips.Add(new Destroyer(bow, stern));
+					ships.Add(new Destroyer(bow, stern));
 					break;
 				case 3:
-					remainingShips.Add(new Cruiser(bow, stern));
+					ships.Add(new Cruiser(bow, stern));
 					break;
 				case 4:
-					remainingShips.Add(new Battleship(bow, stern));
+					ships.Add(new Battleship(bow, stern));
 					break;
 			}
 		}
 
-		public bool CheckShot(Cell shot, out bool shipDestroyed)
+		public void CheckShot(Cell shot)
 		{
-			foreach (INavalShip ship in remainingShips)
+			foreach (INavalShip ship in ships)
 			{
 				if (!(ship.CheckIfHit(shot))) continue;
 				shotMap[shot.i, shot.j] = 2;
-				if (ship.DecksIntact > 0)
-				{
-					shipDestroyed = false;
-					return true;
-				}
+				if (ship.DecksIntact > 0) return;
 				if (ship.Bow.i == ship.Stern.i)
 				{
 					int i = shot.i;
@@ -250,16 +183,10 @@ namespace SeaBattleGame.fields
 						if (shotMap[i, j] == 0) shotMap[i, j] = 1;
 					}
 				}
-				remainingShips.Remove(ship);
-				sunkShipsEnds.Add(new Tuple<Cell, Cell>(ship.Bow, ship.Stern));
-				{
-					shipDestroyed = true;
-					return true;
-				}
+				ships.Remove(ship);
+				return;
 			}
 			shotMap[shot.i, shot.j] = 1;
-			shipDestroyed = false;
-			return false;
 		}
 
 		public bool CheckIfMarked(Cell cell)
@@ -268,9 +195,9 @@ namespace SeaBattleGame.fields
 			else return false;
 		}
 
-		public bool CheckIfPlayerLost()
+		public bool CheckIfComputerLost()
 		{
-			if (ShipsDestroyed) return true;
+			if (ships.Count == 0) return true;
 			else return false;
 		}
 	}

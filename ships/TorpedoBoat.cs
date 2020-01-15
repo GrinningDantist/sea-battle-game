@@ -1,29 +1,27 @@
-﻿using System;
-
-namespace SeaBattleGame.ships
+﻿namespace SeaBattleGame.ships
 {
-    internal class TorpedoBoat : INavalShip
-    {
-        public Tuple<int, int> Bow { get; }
+	internal class TorpedoBoat : INavalShip
+	{
+		public Cell Bow { get; }
 
-        public Tuple<int, int> Stern { get; }
+		public Cell Stern { get; }
 
-        public int DecksIntact { get; private set; } = 1;
+		public int DecksIntact { get; private set; } = 1;
 
-        public TorpedoBoat(Tuple<int, int> cell)
-        {
-            Bow = cell;
-            Stern = cell;
-        }
+		public TorpedoBoat(Cell cell)
+		{
+			Bow = cell;
+			Stern = cell;
+		}
 
-        public bool CheckIfHit(int i, int j)
-        {
-            if ((i == Bow.Item1) && (j == Bow.Item2))
-            {
-                DecksIntact = 0;
-                return true;
-            }
-            return false;
-        }
-    }
+		public bool CheckIfHit(Cell shot)
+		{
+			if ((shot.i == Bow.i) && (shot.j == Bow.j))
+			{
+				DecksIntact = 0;
+				return true;
+			}
+			return false;
+		}
+	}
 }

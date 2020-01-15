@@ -1,15 +1,13 @@
-﻿using System;
-
-namespace SeaBattleGame.ships
+﻿namespace SeaBattleGame.ships
 {
-    internal interface INavalShip
-    {
-        Tuple<int, int> Bow { get; }
+	internal interface INavalShip
+	{
+		Cell Bow { get; }
 
-        Tuple<int, int> Stern { get; }
+		Cell Stern { get; }
 
-        int DecksIntact { get; }
+		int DecksIntact { get; }
 
-        bool CheckIfHit(int i, int j);
-    }
+		bool CheckIfHit(Cell shot);
+	}
 }
